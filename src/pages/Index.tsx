@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { toast } from "sonner";
 import TTSControls from "@/components/TTSControls";
 import FloatingButton from "@/components/FloatingButton";
 import AccessibilitySettings from "@/components/AccessibilitySettings";
+import WhatsAppVerification from "@/components/WhatsAppVerification";
 
 const Index = () => {
   const [isWhatsAppMode, setIsWhatsAppMode] = useState(true);
@@ -20,6 +20,7 @@ const Index = () => {
   const [voiceSpeed, setVoiceSpeed] = useState([1]);
   const [voicePitch, setVoicePitch] = useState([1]);
   const [isListening, setIsListening] = useState(false);
+  const [isWhatsAppVerified, setIsWhatsAppVerified] = useState(false);
 
   const languages = [
     { code: "en-US", name: "English (US)" },
@@ -46,9 +47,20 @@ const Index = () => {
   const handleModeToggle = (checked: boolean) => {
     setIsWhatsAppMode(checked);
     toast.success(checked ? "WhatsApp mode enabled" : "Document reading mode enabled");
+    
+    // Reset verification status when switching modes
+    if (checked) {
+      setIsWhatsAppVerified(false);
+    }
   };
 
   const handleStartListening = () => {
+    // Check WhatsApp verification for WhatsApp mode
+    if (isWhatsAppMode && !isWhatsAppVerified) {
+      toast.error("Please verify your WhatsApp number first");
+      return;
+    }
+
     setIsListening(true);
     toast.success(isWhatsAppMode ? "Listening for WhatsApp messages..." : "Listening for document text...");
   };
@@ -57,6 +69,11 @@ const Index = () => {
     setIsListening(false);
     setIsPlaying(false);
     toast.info("Stopped listening");
+  };
+
+  const handleVerificationChange = (isVerified: boolean) => {
+    setIsWhatsAppVerified(isVerified);
+    console.log('WhatsApp verification status changed:', isVerified);
   };
 
   return (
@@ -91,7 +108,7 @@ const Index = () => {
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     {isWhatsAppMode 
-                      ? "Read WhatsApp messages aloud when tapped"
+                      ? "Read WhatsApp messages aloud when tapped (requires verification)"
                       : "Read PDF and Word documents aloud"
                     }
                   </p>
@@ -106,6 +123,11 @@ const Index = () => {
           </CardContent>
         </Card>
 
+        {/* WhatsApp Verification - Only show in WhatsApp mode */}
+        {isWhatsAppMode && (
+          <WhatsAppVerification onVerificationChange={handleVerificationChange} />
+        )}
+
         {/* Main Controls */}
         <div className="grid md:grid-cols-2 gap-6">
           <TTSControls
@@ -117,6 +139,7 @@ const Index = () => {
             voicePitch={voicePitch}
             onSpeedChange={setVoiceSpeed}
             onPitchChange={setVoicePitch}
+            isDisabled={isWhatsAppMode && !isWhatsAppVerified}
           />
 
           <Card className="border-2 shadow-lg">
@@ -195,7 +218,9 @@ const Index = () => {
               <p className="text-lg font-medium">
                 {isListening 
                   ? `Listening for ${isWhatsAppMode ? 'WhatsApp messages' : 'document text'}...`
-                  : 'Ready to start'
+                  : isWhatsAppMode && !isWhatsAppVerified
+                    ? 'Please verify WhatsApp number to start'
+                    : 'Ready to start'
                 }
               </p>
             </div>
@@ -207,6 +232,7 @@ const Index = () => {
       <FloatingButton 
         isListening={isListening}
         onToggle={isListening ? handleStopListening : handleStartListening}
+        isDisabled={isWhatsAppMode && !isWhatsAppVerified}
       />
     </div>
   );

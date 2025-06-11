@@ -12,6 +12,7 @@ interface TTSControlsProps {
   voicePitch: number[];
   onSpeedChange: (value: number[]) => void;
   onPitchChange: (value: number[]) => void;
+  isDisabled?: boolean;
 }
 
 const TTSControls = ({
@@ -19,6 +20,7 @@ const TTSControls = ({
   isListening,
   onStartListening,
   onStopListening,
+  isDisabled = false,
 }: TTSControlsProps) => {
   const handleTestSpeech = () => {
     if ('speechSynthesis' in window) {
@@ -44,11 +46,12 @@ const TTSControls = ({
         <div className="grid grid-cols-2 gap-3">
           <Button
             onClick={isListening ? onStopListening : onStartListening}
+            disabled={isDisabled}
             className={`h-12 text-sm font-medium transition-all duration-200 ${
               isListening 
                 ? 'bg-red-500 hover:bg-red-600 text-white' 
                 : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
+            } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isListening ? (
               <>
@@ -84,7 +87,10 @@ const TTSControls = ({
 
         <div className="pt-2 border-t">
           <p className="text-xs text-muted-foreground text-center">
-            Tap Start to begin listening for text to read aloud
+            {isDisabled 
+              ? "Verify WhatsApp number to enable TTS controls"
+              : "Tap Start to begin listening for text to read aloud"
+            }
           </p>
         </div>
       </CardContent>
