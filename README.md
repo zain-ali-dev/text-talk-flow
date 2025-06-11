@@ -32,4 +32,4 @@ It reads aloud messages when tapped **within WhatsApp**, and also allows users t
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/whatsapp-tts-reader.git
+   git clone [https://github.com/zain-ali-dev/text-talk-flow](https://github.com/zain-ali-dev/text-talk-flow)
