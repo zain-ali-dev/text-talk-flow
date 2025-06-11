@@ -84,7 +84,7 @@ const AccessibilitySettings = ({ isWhatsAppMode, selectedLanguage }: Accessibili
                   <div className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold mt-0.5">1</div>
                   <div>
                     <p className="font-medium">Enable Accessibility</p>
-                    <p className="text-xs text-blue-700">Go to Settings > Accessibility > VoiceAssist</p>
+                    <p className="text-xs text-blue-700">Go to Settings &gt; Accessibility &gt; VoiceAssist</p>
                   </div>
                 </div>
               </div>
