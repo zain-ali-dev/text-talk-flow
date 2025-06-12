@@ -8,8 +8,16 @@ interface WhitelistResponse {
 }
 
 export const useWhatsAppWhitelist = () => {
-  const [isWhitelisted, setIsWhitelisted] = useState(false);
-  const [currentNumber, setCurrentNumber] = useState<string | null>(null);
+  const [currentNumber, setCurrentNumber] = useState<string>('');
+  const [isWhitelisted, setIsWhitelisted] = useState<boolean>(false);
+
+  // Fallback data for when API is not accessible
+  const fallbackWhitelist = [
+    "+923001234567",
+    "+4915123456789", 
+    "+12025550123",
+    "+447911123456"
+  ];
 
   const { data: whitelistData, isLoading, error } = useQuery({
     queryKey: ['whatsapp-whitelist'],
@@ -17,87 +25,82 @@ export const useWhatsAppWhitelist = () => {
       console.log('Fetching whitelist from API...');
       
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
         const response = await fetch('https://devzea.com/api/whatsapp-numbers.json', {
-          method: 'GET',
-          mode: 'cors',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
           },
+          signal: controller.signal,
+          mode: 'cors'
         });
         
+        clearTimeout(timeoutId);
+        
         if (!response.ok) {
-          console.error('Response not OK:', response.status, response.statusText);
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log('Whitelist data received:', data);
+        console.log('Whitelist fetched successfully:', data);
         return data;
       } catch (fetchError) {
         console.error('Fetch error:', fetchError);
-        // Fallback for development/testing
+        // Return fallback data instead of throwing
+        console.log('Using fallback whitelist data');
         return {
-          status: 'success',
-          whitelist: ['+923001234567', '+4915123456789', '+12025550123', '+447911123456']
+          status: 'fallback',
+          whitelist: fallbackWhitelist
         };
       }
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     retry: 3,
-    retryDelay: 1000,
+    retryDelay: 2000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  const checkWhitelistStatus = (phoneNumber: string) => {
-    console.log('Checking whitelist status for:', phoneNumber);
-    
-    if (!whitelistData?.whitelist) {
-      console.log('Whitelist not loaded yet');
-      return false;
-    }
+  const whitelist = whitelistData?.whitelist || fallbackWhitelist;
 
-    const normalizedNumber = phoneNumber.replace(/\s+/g, '').trim();
-    const isListed = whitelistData.whitelist.includes(normalizedNumber);
+  const checkWhitelistStatus = (phoneNumber: string): boolean => {
+    const cleanNumber = phoneNumber.trim();
+    const isInWhitelist = whitelist.includes(cleanNumber);
     
-    console.log('Whitelist check result:', isListed);
-    console.log('Available whitelist:', whitelistData.whitelist);
+    setCurrentNumber(cleanNumber);
+    setIsWhitelisted(isInWhitelist);
     
-    setCurrentNumber(normalizedNumber);
-    setIsWhitelisted(isListed);
-    
-    // Store verification status in localStorage
-    if (isListed) {
-      localStorage.setItem('whatsapp_verified_number', normalizedNumber);
+    // Store verification status
+    if (isInWhitelist) {
       localStorage.setItem('whatsapp_verification_status', 'true');
+      localStorage.setItem('whatsapp_verified_number', cleanNumber);
+    } else {
+      localStorage.removeItem('whatsapp_verification_status');
+      localStorage.removeItem('whatsapp_verified_number');
     }
     
-    return isListed;
+    console.log(`Number ${cleanNumber} whitelist status:`, isInWhitelist);
+    return isInWhitelist;
   };
 
-  // Check if user was previously verified
+  // Check stored verification on component mount
   useEffect(() => {
-    const savedNumber = localStorage.getItem('whatsapp_verified_number');
-    const savedStatus = localStorage.getItem('whatsapp_verification_status');
+    const storedStatus = localStorage.getItem('whatsapp_verification_status');
+    const storedNumber = localStorage.getItem('whatsapp_verified_number');
     
-    if (savedNumber && savedStatus === 'true' && whitelistData?.whitelist) {
-      const isStillWhitelisted = whitelistData.whitelist.includes(savedNumber);
-      if (isStillWhitelisted) {
-        setCurrentNumber(savedNumber);
-        setIsWhitelisted(true);
-      } else {
-        // Remove from storage if no longer whitelisted
-        localStorage.removeItem('whatsapp_verified_number');
-        localStorage.removeItem('whatsapp_verification_status');
-      }
+    if (storedStatus === 'true' && storedNumber) {
+      setCurrentNumber(storedNumber);
+      setIsWhitelisted(true);
     }
-  }, [whitelistData]);
+  }, []);
 
   return {
-    whitelist: whitelistData?.whitelist || [],
+    whitelist,
     isWhitelisted,
     currentNumber,
     isLoading,
-    error,
+    error: error && whitelistData?.status !== 'fallback' ? error : null,
     checkWhitelistStatus,
   };
 };

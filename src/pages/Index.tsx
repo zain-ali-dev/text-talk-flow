@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useWhatsAppWhitelist } from "@/hooks/useWhatsAppWhitelist";
 import PermissionsScreen from "@/components/PermissionsScreen";
@@ -39,9 +38,13 @@ const Index = () => {
   ];
 
   useEffect(() => {
+    console.log('App initializing...');
+    
     // Check if user has already completed the flow
     const savedStage = localStorage.getItem('app_stage');
     const hasWhatsAppVerification = localStorage.getItem('whatsapp_verification_status') === 'true';
+    
+    console.log('Saved stage:', savedStage, 'Has verification:', hasWhatsAppVerification);
     
     if (savedStage === 'app' && hasWhatsAppVerification) {
       setAppStage('app');
@@ -53,21 +56,45 @@ const Index = () => {
     if ('speechSynthesis' in window) {
       console.log('Text-to-Speech is available');
     } else {
+      console.log('Text-to-Speech not supported in this browser');
       toast.error("Text-to-Speech not supported in this browser");
     }
 
-    // Enable background mode
+    // Enable background mode with better error handling
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('Service Worker registered successfully:', registration);
+        })
+        .catch(error => {
+          console.log('Service Worker registration failed:', error);
+          // Don't show error to user as it's not critical
+        });
+    } else {
+      console.log('Service Worker not supported');
     }
+
+    // Add error boundary for unhandled promise rejections
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.log('Unhandled promise rejection:', event.reason);
+      event.preventDefault(); // Prevent the default browser behavior
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
   }, []);
 
   const handlePermissionsGranted = () => {
+    console.log('Permissions granted, moving to verification');
     setAppStage('verification');
     localStorage.setItem('app_stage', 'verification');
   };
 
   const handleVerificationComplete = (isVerified: boolean) => {
+    console.log('Verification complete:', isVerified);
     if (isVerified) {
       setAppStage('app');
       localStorage.setItem('app_stage', 'app');
