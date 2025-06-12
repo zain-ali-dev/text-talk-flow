@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
@@ -59,7 +58,7 @@ export const useWhatsAppWhitelist = () => {
     retry: 3,
     retryDelay: 2000,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime)
   });
 
   const whitelist = whitelistData?.whitelist || fallbackWhitelist;
