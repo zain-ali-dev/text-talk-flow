@@ -13,7 +13,7 @@ const FloatingButton = ({ isListening, onToggle, isDisabled = false }: FloatingB
     <Button
       onClick={onToggle}
       disabled={isDisabled}
-      className={`fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
+      className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 z-50 ${
         isListening 
           ? 'bg-red-500 hover:bg-red-600 text-white' 
           : 'bg-blue-500 hover:bg-blue-600 text-white'
@@ -21,9 +21,9 @@ const FloatingButton = ({ isListening, onToggle, isDisabled = false }: FloatingB
       size="icon"
     >
       {isListening ? (
-        <Square className="w-6 h-6" />
+        <Square className="w-5 h-5 sm:w-6 sm:h-6" />
       ) : (
-        <Play className="w-6 h-6" />
+        <Play className="w-5 h-5 sm:w-6 sm:h-6" />
       )}
     </Button>
   );

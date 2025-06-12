@@ -1,26 +1,29 @@
+
 import { useState, useEffect } from "react";
+import { useWhatsAppWhitelist } from "@/hooks/useWhatsAppWhitelist";
+import PermissionsScreen from "@/components/PermissionsScreen";
+import WhatsAppVerification from "@/components/WhatsAppVerification";
+import TTSControls from "@/components/TTSControls";
+import FloatingButton from "@/components/FloatingButton";
+import AccessibilitySettings from "@/components/AccessibilitySettings";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Volume2, Settings, MessageSquare, FileText, Play, Pause, RotateCcw } from "lucide-react";
+import { Volume2, Settings, MessageSquare, FileText } from "lucide-react";
 import { toast } from "sonner";
-import TTSControls from "@/components/TTSControls";
-import FloatingButton from "@/components/FloatingButton";
-import AccessibilitySettings from "@/components/AccessibilitySettings";
-import WhatsAppVerification from "@/components/WhatsAppVerification";
 
 const Index = () => {
+  const [appStage, setAppStage] = useState<'permissions' | 'verification' | 'app'>('permissions');
   const [isWhatsAppMode, setIsWhatsAppMode] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en-US");
   const [voiceSpeed, setVoiceSpeed] = useState([1]);
   const [voicePitch, setVoicePitch] = useState([1]);
   const [isListening, setIsListening] = useState(false);
-  const [isWhatsAppVerified, setIsWhatsAppVerified] = useState(false);
+  const { isWhitelisted } = useWhatsAppWhitelist();
 
   const languages = [
     { code: "en-US", name: "English (US)" },
@@ -36,27 +39,49 @@ const Index = () => {
   ];
 
   useEffect(() => {
+    // Check if user has already completed the flow
+    const savedStage = localStorage.getItem('app_stage');
+    const hasWhatsAppVerification = localStorage.getItem('whatsapp_verification_status') === 'true';
+    
+    if (savedStage === 'app' && hasWhatsAppVerification) {
+      setAppStage('app');
+    } else if (savedStage === 'verification') {
+      setAppStage('verification');
+    }
+
     // Check if Speech Synthesis is available
     if ('speechSynthesis' in window) {
       console.log('Text-to-Speech is available');
     } else {
       toast.error("Text-to-Speech not supported in this browser");
     }
+
+    // Enable background mode
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(console.error);
+    }
   }, []);
+
+  const handlePermissionsGranted = () => {
+    setAppStage('verification');
+    localStorage.setItem('app_stage', 'verification');
+  };
+
+  const handleVerificationComplete = (isVerified: boolean) => {
+    if (isVerified) {
+      setAppStage('app');
+      localStorage.setItem('app_stage', 'app');
+      toast.success('Welcome to VoiceAssist! App is now running in background.');
+    }
+  };
 
   const handleModeToggle = (checked: boolean) => {
     setIsWhatsAppMode(checked);
     toast.success(checked ? "WhatsApp mode enabled" : "Document reading mode enabled");
-    
-    // Reset verification status when switching modes
-    if (checked) {
-      setIsWhatsAppVerified(false);
-    }
   };
 
   const handleStartListening = () => {
-    // Check WhatsApp verification for WhatsApp mode
-    if (isWhatsAppMode && !isWhatsAppVerified) {
+    if (isWhatsAppMode && !isWhitelisted) {
       toast.error("Please verify your WhatsApp number first");
       return;
     }
@@ -71,44 +96,52 @@ const Index = () => {
     toast.info("Stopped listening");
   };
 
-  const handleVerificationChange = (isVerified: boolean) => {
-    setIsWhatsAppVerified(isVerified);
-    console.log('WhatsApp verification status changed:', isVerified);
-  };
+  if (appStage === 'permissions') {
+    return <PermissionsScreen onPermissionsGranted={handlePermissionsGranted} />;
+  }
+
+  if (appStage === 'verification') {
+    return (
+      <WhatsAppVerification 
+        onVerificationChange={handleVerificationComplete} 
+        isFullScreen={true}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
-      <div className="container max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-2 sm:p-4">
+      <div className="container max-w-4xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="text-center space-y-2 pt-8">
+        <div className="text-center space-y-2 pt-4 sm:pt-8">
           <div className="flex items-center justify-center space-x-2 mb-4">
-            <Volume2 className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <Volume2 className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+            <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               VoiceAssist
             </h1>
           </div>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-sm sm:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
             Accessible text-to-speech reader for WhatsApp messages and documents
           </p>
         </div>
 
         {/* Mode Selection */}
         <Card className="border-2 shadow-lg">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 {isWhatsAppMode ? (
-                  <MessageSquare className="w-6 h-6 text-green-600" />
+                  <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                 ) : (
-                  <FileText className="w-6 h-6 text-blue-600" />
+                  <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                 )}
                 <div>
-                  <h3 className="text-lg font-semibold">
+                  <h3 className="text-base sm:text-lg font-semibold">
                     {isWhatsAppMode ? "WhatsApp Mode" : "Document Mode"}
                   </h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {isWhatsAppMode 
-                      ? "Read WhatsApp messages aloud when tapped (requires verification)"
+                      ? "Read WhatsApp messages aloud when tapped"
                       : "Read PDF and Word documents aloud"
                     }
                   </p>
@@ -123,13 +156,8 @@ const Index = () => {
           </CardContent>
         </Card>
 
-        {/* WhatsApp Verification - Only show in WhatsApp mode */}
-        {isWhatsAppMode && (
-          <WhatsAppVerification onVerificationChange={handleVerificationChange} />
-        )}
-
         {/* Main Controls */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
           <TTSControls
             isPlaying={isPlaying}
             isListening={isListening}
@@ -139,20 +167,20 @@ const Index = () => {
             voicePitch={voicePitch}
             onSpeedChange={setVoiceSpeed}
             onPitchChange={setVoicePitch}
-            isDisabled={isWhatsAppMode && !isWhatsAppVerified}
+            isDisabled={isWhatsAppMode && !isWhitelisted}
           />
 
           <Card className="border-2 shadow-lg">
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="p-4 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Language Settings</h3>
-                <Settings className="w-5 h-5 text-muted-foreground" />
+                <h3 className="text-base sm:text-lg font-semibold">Language Settings</h3>
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
               </div>
               
               <div className="space-y-2">
                 <label className="text-sm font-medium">Voice Language</label>
                 <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10 sm:h-auto">
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
                   <SelectContent>
@@ -210,16 +238,16 @@ const Index = () => {
         <Card className={`border-2 shadow-lg transition-all duration-300 ${
           isListening ? 'border-green-500 bg-green-50' : 'border-gray-200'
         }`}>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-center space-x-3">
               <div className={`w-3 h-3 rounded-full transition-all duration-300 ${
                 isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
               }`} />
-              <p className="text-lg font-medium">
+              <p className="text-sm sm:text-lg font-medium text-center">
                 {isListening 
                   ? `Listening for ${isWhatsAppMode ? 'WhatsApp messages' : 'document text'}...`
-                  : isWhatsAppMode && !isWhatsAppVerified
-                    ? 'Please verify WhatsApp number to start'
+                  : isWhatsAppMode && !isWhitelisted
+                    ? 'WhatsApp number verified - Ready to start'
                     : 'Ready to start'
                 }
               </p>
@@ -232,7 +260,7 @@ const Index = () => {
       <FloatingButton 
         isListening={isListening}
         onToggle={isListening ? handleStopListening : handleStartListening}
-        isDisabled={isWhatsAppMode && !isWhatsAppVerified}
+        isDisabled={isWhatsAppMode && !isWhitelisted}
       />
     </div>
   );

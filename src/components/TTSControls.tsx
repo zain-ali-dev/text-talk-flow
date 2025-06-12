@@ -1,7 +1,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Square, RotateCcw } from "lucide-react";
+import { Play, Pause, Square } from "lucide-react";
 
 interface TTSControlsProps {
   isPlaying: boolean;
@@ -37,13 +37,13 @@ const TTSControls = ({
 
   return (
     <Card className="border-2 shadow-lg">
-      <CardContent className="p-6 space-y-4">
-        <h3 className="text-lg font-semibold flex items-center space-x-2">
-          <Play className="w-5 h-5" />
+      <CardContent className="p-4 sm:p-6 space-y-4">
+        <h3 className="text-base sm:text-lg font-semibold flex items-center space-x-2">
+          <Play className="w-4 h-4 sm:w-5 sm:h-5" />
           <span>Voice Controls</span>
         </h3>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Button
             onClick={isListening ? onStopListening : onStartListening}
             disabled={isDisabled}
@@ -88,7 +88,7 @@ const TTSControls = ({
         <div className="pt-2 border-t">
           <p className="text-xs text-muted-foreground text-center">
             {isDisabled 
-              ? "Verify WhatsApp number to enable TTS controls"
+              ? "Complete WhatsApp verification to enable TTS controls"
               : "Tap Start to begin listening for text to read aloud"
             }
           </p>
