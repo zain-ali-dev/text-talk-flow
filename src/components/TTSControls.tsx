@@ -13,6 +13,8 @@ interface TTSControlsProps {
   onSpeedChange: (value: number[]) => void;
   onPitchChange: (value: number[]) => void;
   isDisabled?: boolean;
+  onTestSpeech?: () => void;
+  onStopSpeech?: () => void;
 }
 
 const TTSControls = ({
@@ -21,16 +23,22 @@ const TTSControls = ({
   onStartListening,
   onStopListening,
   isDisabled = false,
+  onTestSpeech,
+  onStopSpeech,
 }: TTSControlsProps) => {
   const handleTestSpeech = () => {
-    if ('speechSynthesis' in window) {
+    if (onTestSpeech) {
+      onTestSpeech();
+    } else if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance("Hello! VoiceAssist is ready to help you read text aloud.");
       window.speechSynthesis.speak(utterance);
     }
   };
 
   const handleStopSpeech = () => {
-    if ('speechSynthesis' in window) {
+    if (onStopSpeech) {
+      onStopSpeech();
+    } else if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
   };
@@ -70,26 +78,31 @@ const TTSControls = ({
             onClick={handleTestSpeech}
             variant="outline"
             className="h-12 text-sm font-medium"
+            disabled={isDisabled}
           >
             <Play className="w-4 h-4 mr-2" />
             Test Voice
           </Button>
         </div>
 
-        <Button
-          onClick={handleStopSpeech}
-          variant="outline"
-          className="w-full h-12 text-sm font-medium"
-        >
-          <Pause className="w-4 h-4 mr-2" />
-          Stop Speech
-        </Button>
+        {isPlaying && (
+          <Button
+            onClick={handleStopSpeech}
+            variant="outline"
+            className="w-full h-12 text-sm font-medium"
+          >
+            <Pause className="w-4 h-4 mr-2" />
+            Stop Speech
+          </Button>
+        )}
 
         <div className="pt-2 border-t">
           <p className="text-xs text-muted-foreground text-center">
             {isDisabled 
               ? "Complete WhatsApp verification to enable TTS controls"
-              : "Tap Start to begin listening for text to read aloud"
+              : isListening
+                ? "🎯 Go to WhatsApp and tap any message to hear it!"
+                : "Tap Start to begin listening for text to read aloud"
             }
           </p>
         </div>

@@ -1,5 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { useWhatsAppWhitelist } from "@/hooks/useWhatsAppWhitelist";
+import { useWhatsAppTTS } from "@/hooks/useWhatsAppTTS";
 import PermissionsScreen from "@/components/PermissionsScreen";
 import WhatsAppVerification from "@/components/WhatsAppVerification";
 import TTSControls from "@/components/TTSControls";
@@ -17,12 +19,20 @@ import { toast } from "sonner";
 const Index = () => {
   const [appStage, setAppStage] = useState<'permissions' | 'verification' | 'app'>('permissions');
   const [isWhatsAppMode, setIsWhatsAppMode] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("en-US");
   const [voiceSpeed, setVoiceSpeed] = useState([1]);
   const [voicePitch, setVoicePitch] = useState([1]);
   const [isListening, setIsListening] = useState(false);
   const { isWhitelisted } = useWhatsAppWhitelist();
+
+  // Initialize WhatsApp TTS functionality
+  const { isPlaying, stopSpeaking, speakText } = useWhatsAppTTS({
+    isListening: isListening && isWhatsAppMode,
+    selectedLanguage,
+    voiceSpeed: voiceSpeed[0],
+    voicePitch: voicePitch[0],
+    isWhitelisted
+  });
 
   const languages = [
     { code: "en-US", name: "English (US)" },
@@ -104,6 +114,7 @@ const Index = () => {
 
   const handleModeToggle = (checked: boolean) => {
     setIsWhatsAppMode(checked);
+    setIsListening(false); // Stop listening when switching modes
     toast.success(checked ? "WhatsApp mode enabled" : "Document reading mode enabled");
   };
 
@@ -114,13 +125,24 @@ const Index = () => {
     }
 
     setIsListening(true);
-    toast.success(isWhatsAppMode ? "Listening for WhatsApp messages..." : "Listening for document text...");
+    if (isWhatsAppMode) {
+      toast.success("Listening for WhatsApp messages... Tap any message to hear it!");
+    } else {
+      toast.success("Listening for document text...");
+    }
   };
 
   const handleStopListening = () => {
     setIsListening(false);
-    setIsPlaying(false);
+    stopSpeaking(); // Stop any ongoing speech
     toast.info("Stopped listening");
+  };
+
+  const handleTestSpeech = () => {
+    const testMessage = isWhatsAppMode 
+      ? "WhatsApp TTS is working! Tap any message in WhatsApp to hear it read aloud."
+      : "Document reader is ready! Upload a document to get started.";
+    speakText(testMessage);
   };
 
   if (appStage === 'permissions') {
@@ -195,6 +217,8 @@ const Index = () => {
             onSpeedChange={setVoiceSpeed}
             onPitchChange={setVoicePitch}
             isDisabled={isWhatsAppMode && !isWhitelisted}
+            onTestSpeech={handleTestSpeech}
+            onStopSpeech={stopSpeaking}
           />
 
           <Card className="border-2 shadow-lg">
@@ -272,9 +296,11 @@ const Index = () => {
               }`} />
               <p className="text-sm sm:text-lg font-medium text-center">
                 {isListening 
-                  ? `Listening for ${isWhatsAppMode ? 'WhatsApp messages' : 'document text'}...`
+                  ? isWhatsAppMode 
+                    ? 'Ready! Tap any WhatsApp message to hear it'
+                    : 'Listening for document text...'
                   : isWhatsAppMode && !isWhitelisted
-                    ? 'WhatsApp number verified - Ready to start'
+                    ? 'Complete WhatsApp verification to start'
                     : 'Ready to start'
                 }
               </p>
