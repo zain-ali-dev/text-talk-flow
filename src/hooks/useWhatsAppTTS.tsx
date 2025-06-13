@@ -18,22 +18,29 @@ export const useWhatsAppTTS = ({
   isWhitelisted
 }: UseWhatsAppTTSProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isAccessibilityEnabled, setIsAccessibilityEnabled] = useState(false);
   const lastTappedElement = useRef<Element | null>(null);
   const speechSynthesis = window.speechSynthesis;
 
+  // Check if running in Android WebView (Capacitor)
+  const isAndroidApp = () => {
+    return window.location.href.includes('capacitor://') || 
+           (window as any).Capacitor !== undefined ||
+           navigator.userAgent.includes('wv');
+  };
+
+  // Enhanced text extraction for WhatsApp messages
   const extractTextFromElement = (element: Element): string => {
-    // Remove timestamps, status indicators, and other UI elements
     const clonedElement = element.cloneNode(true) as Element;
     
-    // Remove common WhatsApp UI elements
+    // Remove WhatsApp UI elements that shouldn't be read
     const elementsToRemove = [
-      '.message-time',
-      '.message-status',
-      '.quoted-message',
-      '[data-icon]',
-      '.emoji-panel',
-      'button',
-      'svg'
+      '[data-icon]', 'svg', 'button', 'img',
+      '.message-time', '.message-status', '.quoted-message',
+      '._1pJ9J', '._3-8er ._1pJ9J', // WhatsApp Web time stamps
+      '._3fnab', // Status indicators
+      '._2f-RV', // Voice note duration
+      '._3DFk6' // Message reactions
     ];
     
     elementsToRemove.forEach(selector => {
@@ -41,19 +48,19 @@ export const useWhatsAppTTS = ({
       elements.forEach(el => el.remove());
     });
     
-    // Get clean text content
     let text = clonedElement.textContent?.trim() || '';
     
-    // Clean up common WhatsApp artifacts
-    text = text.replace(/\d{1,2}:\d{2}(\s?(AM|PM))?/g, ''); // Remove timestamps
-    text = text.replace(/✓✓?/g, ''); // Remove checkmarks
-    text = text.replace(/\s+/g, ' ').trim(); // Clean up whitespace
+    // Clean up WhatsApp-specific artifacts
+    text = text.replace(/\d{1,2}:\d{2}(\s?(AM|PM))?/g, ''); // Timestamps
+    text = text.replace(/✓✓?/g, ''); // Read receipts
+    text = text.replace(/\u00a0/g, ' '); // Non-breaking spaces
+    text = text.replace(/\s+/g, ' ').trim(); // Multiple spaces
     
     return text;
   };
 
   const speakText = (text: string) => {
-    if (!text || text.length < 2) return;
+    if (!text || text.length < 3) return;
     
     console.log('Speaking text:', text);
     
@@ -64,6 +71,7 @@ export const useWhatsAppTTS = ({
     utterance.lang = selectedLanguage;
     utterance.rate = voiceSpeed;
     utterance.pitch = voicePitch;
+    utterance.volume = 1.0;
     
     utterance.onstart = () => {
       setIsPlaying(true);
@@ -82,7 +90,48 @@ export const useWhatsAppTTS = ({
     };
     
     speechSynthesis.speak(utterance);
-    toast.success('Reading message...');
+  };
+
+  // Enhanced message detection for WhatsApp
+  const findWhatsAppMessage = (target: Element): Element | null => {
+    // WhatsApp Web and Mobile app selectors
+    const messageSelectors = [
+      '[data-id*="message"]', // WhatsApp Web message containers
+      '.message-in', '.message-out', // Generic message classes
+      '._2wP_Y', // WhatsApp Web message bubble
+      '.copyable-text', // Text containers
+      '._22Msk', // New WhatsApp Web selector
+      '[role="row"]', // Chat rows
+      '.selectable-text', // Selectable text elements
+      '._11JPr', // Message content
+      '._3-8er' // Message wrapper
+    ];
+    
+    // First try to find exact message container
+    for (const selector of messageSelectors) {
+      const messageElement = target.closest(selector);
+      if (messageElement && messageElement.textContent && messageElement.textContent.trim().length > 5) {
+        return messageElement;
+      }
+    }
+    
+    // If no specific container found, traverse up to find text content
+    let currentElement = target;
+    for (let i = 0; i < 8; i++) {
+      if (currentElement.textContent && currentElement.textContent.trim().length > 10) {
+        // Check if this looks like a message (has reasonable text content)
+        const text = currentElement.textContent.trim();
+        if (text.length > 5 && !text.match(/^[\d:]+$/)) { // Not just timestamps
+          return currentElement;
+        }
+      }
+      
+      const parent = currentElement.parentElement;
+      if (!parent) break;
+      currentElement = parent;
+    }
+    
+    return null;
   };
 
   const handleElementTap = (event: Event) => {
@@ -91,56 +140,69 @@ export const useWhatsAppTTS = ({
     const target = event.target as Element;
     if (!target) return;
     
-    // Find the message container - look for common WhatsApp message selectors
-    const messageSelectors = [
-      '[data-id]', // WhatsApp message containers
-      '.message-in',
-      '.message-out',
-      '._3-8er', // WhatsApp Web message bubble
-      '._2cuy2', // Another WhatsApp selector
-      '.copyable-text',
-      '[role="row"]',
-      '.selectable-text'
-    ];
+    console.log('Element tapped:', target);
     
-    let messageElement: Element | null = null;
+    const messageElement = findWhatsAppMessage(target);
     
-    // Try to find the message container
-    for (const selector of messageSelectors) {
-      messageElement = target.closest(selector);
-      if (messageElement) break;
+    if (!messageElement || messageElement === lastTappedElement.current) {
+      console.log('No new message element found or same element tapped');
+      return;
     }
-    
-    // If no specific container found, try to find text content in parent elements
-    if (!messageElement) {
-      let currentElement = target;
-      for (let i = 0; i < 5; i++) { // Check up to 5 parent levels
-        if (currentElement.textContent && currentElement.textContent.trim().length > 10) {
-          messageElement = currentElement;
-          break;
-        }
-        currentElement = currentElement.parentElement as Element;
-        if (!currentElement) break;
-      }
-    }
-    
-    if (!messageElement || messageElement === lastTappedElement.current) return;
     
     lastTappedElement.current = messageElement;
     
     const text = extractTextFromElement(messageElement);
     
-    if (text && text.length > 2) {
-      console.log('Found WhatsApp message:', text);
+    if (text && text.length > 3) {
+      console.log('Found WhatsApp message text:', text);
       speakText(text);
+      
+      // Visual feedback for successful detection
+      if (isAndroidApp()) {
+        messageElement.style.backgroundColor = '#e3f2fd';
+        setTimeout(() => {
+          messageElement.style.backgroundColor = '';
+        }, 1000);
+      }
     } else {
-      console.log('No readable text found in tapped element');
+      console.log('No readable text found in tapped element, text length:', text?.length);
     }
+  };
+
+  // Check accessibility service status (for Android)
+  const checkAccessibilityStatus = async () => {
+    if (isAndroidApp() && (window as any).Capacitor) {
+      try {
+        // This would be implemented in the native Android code
+        const result = await (window as any).Capacitor.Plugins.VoiceAssist?.isAccessibilityEnabled() || false;
+        setIsAccessibilityEnabled(result);
+        return result;
+      } catch (error) {
+        console.log('Could not check accessibility status:', error);
+        return false;
+      }
+    }
+    return true; // Assume enabled for web version
+  };
+
+  // Setup accessibility service (for Android)
+  const requestAccessibilityPermission = async () => {
+    if (isAndroidApp() && (window as any).Capacitor) {
+      try {
+        await (window as any).Capacitor.Plugins.VoiceAssist?.requestAccessibilityPermission();
+        toast.success('Please enable VoiceAssist in Accessibility Settings');
+        return true;
+      } catch (error) {
+        console.error('Failed to request accessibility permission:', error);
+        toast.error('Failed to request accessibility permission');
+        return false;
+      }
+    }
+    return true;
   };
 
   useEffect(() => {
     if (!isListening || !isWhitelisted) {
-      // Remove listeners when not listening
       document.removeEventListener('click', handleElementTap, true);
       document.removeEventListener('touchend', handleElementTap, true);
       return;
@@ -148,9 +210,31 @@ export const useWhatsAppTTS = ({
 
     console.log('WhatsApp TTS listening started...');
     
-    // Add event listeners for both click and touch events
-    document.addEventListener('click', handleElementTap, true);
-    document.addEventListener('touchend', handleElementTap, true);
+    // Check accessibility status
+    checkAccessibilityStatus();
+    
+    // Add event listeners with high priority
+    document.addEventListener('click', handleElementTap, { capture: true, passive: false });
+    document.addEventListener('touchend', handleElementTap, { capture: true, passive: false });
+    
+    // For Android app, also listen to custom events from accessibility service
+    if (isAndroidApp()) {
+      const handleAccessibilityEvent = (event: CustomEvent) => {
+        console.log('Accessibility event received:', event.detail);
+        if (event.detail?.text) {
+          speakText(event.detail.text);
+        }
+      };
+      
+      window.addEventListener('whatsapp-message-tapped', handleAccessibilityEvent as EventListener);
+      
+      return () => {
+        document.removeEventListener('click', handleElementTap, true);
+        document.removeEventListener('touchend', handleElementTap, true);
+        window.removeEventListener('whatsapp-message-tapped', handleAccessibilityEvent as EventListener);
+        speechSynthesis.cancel();
+      };
+    }
     
     return () => {
       document.removeEventListener('click', handleElementTap, true);
@@ -167,7 +251,10 @@ export const useWhatsAppTTS = ({
 
   return {
     isPlaying,
+    isAccessibilityEnabled,
     stopSpeaking,
-    speakText
+    speakText,
+    requestAccessibilityPermission,
+    checkAccessibilityStatus
   };
 };

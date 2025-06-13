@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useWhatsAppWhitelist } from "@/hooks/useWhatsAppWhitelist";
 import { useWhatsAppTTS } from "@/hooks/useWhatsAppTTS";
@@ -7,6 +6,7 @@ import WhatsAppVerification from "@/components/WhatsAppVerification";
 import TTSControls from "@/components/TTSControls";
 import FloatingButton from "@/components/FloatingButton";
 import AccessibilitySettings from "@/components/AccessibilitySettings";
+import AccessibilitySetup from "@/components/AccessibilitySetup";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -26,7 +26,14 @@ const Index = () => {
   const { isWhitelisted } = useWhatsAppWhitelist();
 
   // Initialize WhatsApp TTS functionality
-  const { isPlaying, stopSpeaking, speakText } = useWhatsAppTTS({
+  const { 
+    isPlaying, 
+    isAccessibilityEnabled, 
+    stopSpeaking, 
+    speakText, 
+    requestAccessibilityPermission,
+    checkAccessibilityStatus 
+  } = useWhatsAppTTS({
     isListening: isListening && isWhatsAppMode,
     selectedLanguage,
     voiceSpeed: voiceSpeed[0],
@@ -124,6 +131,11 @@ const Index = () => {
       return;
     }
 
+    if (isWhatsAppMode && !isAccessibilityEnabled) {
+      toast.error("Please enable accessibility service first");
+      return;
+    }
+
     setIsListening(true);
     if (isWhatsAppMode) {
       toast.success("Listening for WhatsApp messages... Tap any message to hear it!");
@@ -205,6 +217,15 @@ const Index = () => {
           </CardContent>
         </Card>
 
+        {/* Accessibility Setup for WhatsApp Mode */}
+        {isWhatsAppMode && (
+          <AccessibilitySetup
+            isAccessibilityEnabled={isAccessibilityEnabled}
+            onRequestPermission={requestAccessibilityPermission}
+            onCheckStatus={checkAccessibilityStatus}
+          />
+        )}
+
         {/* Main Controls */}
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
           <TTSControls
@@ -216,11 +237,12 @@ const Index = () => {
             voicePitch={voicePitch}
             onSpeedChange={setVoiceSpeed}
             onPitchChange={setVoicePitch}
-            isDisabled={isWhatsAppMode && !isWhitelisted}
+            isDisabled={(isWhatsAppMode && !isWhitelisted) || (isWhatsAppMode && !isAccessibilityEnabled)}
             onTestSpeech={handleTestSpeech}
             onStopSpeech={stopSpeaking}
           />
 
+          {/* Language Settings Card */}
           <Card className="border-2 shadow-lg">
             <CardContent className="p-4 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
@@ -301,7 +323,9 @@ const Index = () => {
                     : 'Listening for document text...'
                   : isWhatsAppMode && !isWhitelisted
                     ? 'Complete WhatsApp verification to start'
-                    : 'Ready to start'
+                    : isWhatsAppMode && !isAccessibilityEnabled
+                      ? 'Enable accessibility service to start'
+                      : 'Ready to start'
                 }
               </p>
             </div>
@@ -313,7 +337,7 @@ const Index = () => {
       <FloatingButton 
         isListening={isListening}
         onToggle={isListening ? handleStopListening : handleStartListening}
-        isDisabled={isWhatsAppMode && !isWhitelisted}
+        isDisabled={(isWhatsAppMode && !isWhitelisted) || (isWhatsAppMode && !isAccessibilityEnabled)}
       />
     </div>
   );
