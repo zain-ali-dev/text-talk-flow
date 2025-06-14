@@ -18,7 +18,7 @@ export const useWhatsAppTTS = ({
   isWhitelisted
 }: UseWhatsAppTTSProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isAccessibilityEnabled, setIsAccessibilityEnabled] = useState(false);
+  const [isAccessibilityEnabled, setIsAccessibilityEnabled] = useState(true); // Default to true for web
   const lastTappedElement = useRef<Element | null>(null);
   const speechSynthesis = window.speechSynthesis;
 
@@ -141,6 +141,18 @@ export const useWhatsAppTTS = ({
     if (!target) return;
     
     console.log('Element tapped:', target);
+    console.log('Current URL:', window.location.href);
+    console.log('Is WhatsApp:', window.location.href.includes('whatsapp'));
+    
+    // Check if we're on WhatsApp
+    const isOnWhatsApp = window.location.href.includes('whatsapp') || 
+                        window.location.href.includes('wa.me') ||
+                        document.title.toLowerCase().includes('whatsapp');
+    
+    if (!isOnWhatsApp) {
+      console.log('Not on WhatsApp, ignoring tap');
+      return;
+    }
     
     const messageElement = findWhatsAppMessage(target);
     
@@ -158,14 +170,19 @@ export const useWhatsAppTTS = ({
       speakText(text);
       
       // Visual feedback for successful detection
-      if (isAndroidApp()) {
-        messageElement.style.backgroundColor = '#e3f2fd';
+      const htmlElement = messageElement as HTMLElement;
+      if (htmlElement.style) {
+        const originalBg = htmlElement.style.backgroundColor;
+        htmlElement.style.backgroundColor = '#e3f2fd';
         setTimeout(() => {
-          messageElement.style.backgroundColor = '';
+          htmlElement.style.backgroundColor = originalBg;
         }, 1000);
       }
+      
+      toast.success(`Speaking: ${text.substring(0, 50)}...`);
     } else {
       console.log('No readable text found in tapped element, text length:', text?.length);
+      toast.info('No readable text found in tapped message');
     }
   };
 
@@ -176,13 +193,17 @@ export const useWhatsAppTTS = ({
         // This would be implemented in the native Android code
         const result = await (window as any).Capacitor.Plugins.VoiceAssist?.isAccessibilityEnabled() || false;
         setIsAccessibilityEnabled(result);
+        console.log('Accessibility status:', result);
         return result;
       } catch (error) {
         console.log('Could not check accessibility status:', error);
-        return false;
+        setIsAccessibilityEnabled(true); // Assume enabled for web
+        return true;
       }
     }
-    return true; // Assume enabled for web version
+    // For web version, always return true
+    setIsAccessibilityEnabled(true);
+    return true;
   };
 
   // Setup accessibility service (for Android)
@@ -198,6 +219,9 @@ export const useWhatsAppTTS = ({
         return false;
       }
     }
+    
+    // For web version, show instructions
+    toast.info('For web version: Just tap on WhatsApp messages to hear them spoken!');
     return true;
   };
 
@@ -205,10 +229,13 @@ export const useWhatsAppTTS = ({
     if (!isListening || !isWhitelisted) {
       document.removeEventListener('click', handleElementTap, true);
       document.removeEventListener('touchend', handleElementTap, true);
+      console.log('WhatsApp TTS listening stopped');
       return;
     }
 
     console.log('WhatsApp TTS listening started...');
+    console.log('Current URL:', window.location.href);
+    console.log('User Agent:', navigator.userAgent);
     
     // Check accessibility status
     checkAccessibilityStatus();
@@ -233,6 +260,7 @@ export const useWhatsAppTTS = ({
         document.removeEventListener('touchend', handleElementTap, true);
         window.removeEventListener('whatsapp-message-tapped', handleAccessibilityEvent as EventListener);
         speechSynthesis.cancel();
+        console.log('WhatsApp TTS cleanup completed');
       };
     }
     
@@ -240,6 +268,7 @@ export const useWhatsAppTTS = ({
       document.removeEventListener('click', handleElementTap, true);
       document.removeEventListener('touchend', handleElementTap, true);
       speechSynthesis.cancel();
+      console.log('WhatsApp TTS cleanup completed');
     };
   }, [isListening, isWhitelisted, selectedLanguage, voiceSpeed, voicePitch]);
 
