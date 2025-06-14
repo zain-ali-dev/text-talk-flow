@@ -25,7 +25,8 @@ const AccessibilitySetup = ({
     const checkEnvironment = () => {
       const isAndroid = window.location.href.includes('capacitor://') || 
                        (window as any).Capacitor !== undefined ||
-                       navigator.userAgent.includes('wv');
+                       navigator.userAgent.includes('wv') ||
+                       navigator.userAgent.includes('Android');
       setIsAndroidApp(isAndroid);
     };
     checkEnvironment();
@@ -37,21 +38,128 @@ const AccessibilitySetup = ({
       await onRequestPermission();
       setTimeout(() => {
         onCheckStatus();
-      }, 2000);
+      }, 3000);
     } finally {
       setIsChecking(false);
     }
   };
 
   const handleOpenWhatsApp = () => {
-    toast.info("Opening WhatsApp Web...");
-    window.open('https://web.whatsapp.com', '_blank');
+    if (isAndroidApp) {
+      toast.info("Opening WhatsApp app...");
+      // Try to open WhatsApp app on Android
+      window.open('intent://send?text=Test#Intent;scheme=whatsapp;package=com.whatsapp;end', '_blank');
+    } else {
+      toast.info("Opening WhatsApp Web...");
+      window.open('https://web.whatsapp.com', '_blank');
+    }
   };
 
-  const handleTestInstructions = () => {
-    toast.success("Ready! Start listening in VoiceAssist, then tap any text on any webpage to hear it!");
+  const handleManualSettings = () => {
+    toast.info("Go to Android Settings > Accessibility > Downloaded Apps > VoiceAssist > Turn On");
   };
 
+  if (isAndroidApp) {
+    return (
+      <Card className="border-2 shadow-lg">
+        <CardContent className="p-6 space-y-6">
+          <div className="flex items-center space-x-2">
+            <Smartphone className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-semibold">Android App Setup</h3>
+          </div>
+
+          {!isAccessibilityEnabled ? (
+            <Alert className="border-orange-200 bg-orange-50">
+              <AlertCircle className="w-4 h-4 text-orange-600" />
+              <AlertDescription className="text-orange-800">
+                ⚠️ Accessibility service required for WhatsApp message reading
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                ✅ Accessibility service is enabled! Ready to use with WhatsApp.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            <div className="grid gap-3">
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start space-x-2">
+                  <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-blue-900">Enable Accessibility Service</p>
+                    <p className="text-sm text-blue-700">Android Settings → Accessibility → Downloaded Apps → VoiceAssist → Turn On</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-start space-x-2">
+                  <div className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-green-900">Allow Overlay Permission</p>
+                    <p className="text-sm text-green-700">Allow app to display over other apps (if prompted)</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="flex items-start space-x-2">
+                  <div className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-purple-900">Use with WhatsApp</p>
+                    <p className="text-sm text-purple-700">Open WhatsApp and tap any message to hear it</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <Button 
+                onClick={handleRequestPermission}
+                disabled={isChecking}
+                className="h-12"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                {isChecking ? 'Opening Settings...' : 'Open Accessibility Settings'}
+              </Button>
+
+              <Button 
+                onClick={handleManualSettings}
+                variant="outline"
+                className="h-12"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Manual Setup Instructions
+              </Button>
+
+              <Button 
+                onClick={handleOpenWhatsApp}
+                variant="outline"
+                className="h-12"
+              >
+                <Smartphone className="w-4 h-4 mr-2" />
+                Open WhatsApp
+              </Button>
+            </div>
+          </div>
+
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p><strong>For Android WhatsApp:</strong></p>
+            <p>• Enable accessibility service in Android Settings</p>
+            <p>• Allow overlay permission when prompted</p>
+            <p>• Works in background with WhatsApp app</p>
+            <p>• Tap any message in WhatsApp chats to hear it</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Web version (existing code)
   return (
     <Card className="border-2 shadow-lg">
       <CardContent className="p-6 space-y-6">
