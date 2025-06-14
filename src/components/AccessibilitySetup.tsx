@@ -59,6 +59,10 @@ const AccessibilitySetup = ({
     toast.info("Go to Android Settings > Accessibility > Downloaded Apps > VoiceAssist > Turn On");
   };
 
+  const handleTestInstructions = () => {
+    toast.success("How to use: Click 'Start' to enable listening, then go to any webpage and tap on any text content to hear it read aloud!");
+  };
+
   if (isAndroidApp) {
     return (
       <Card className="border-2 shadow-lg">
